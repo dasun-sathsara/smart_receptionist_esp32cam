@@ -1,0 +1,10 @@
+2024-06-20 13:07:21,714 - INFO - Processing: src\camera.cpp
+2024-06-20 13:07:21,714 - INFO - Processing: src\camera.h
+2024-06-20 13:07:21,714 - INFO - Processing: src\config.h
+2024-06-20 13:07:21,714 - INFO - Processing: src\events.cpp
+2024-06-20 13:07:21,714 - INFO - Processing: src\events.h
+2024-06-20 13:07:21,714 - INFO - Processing: src\logger.h
+2024-06-20 13:07:21,714 - INFO - Processing: src\main.cpp
+2024-06-20 13:07:21,714 - INFO - Processing: src\network_manager.cpp
+2024-06-20 13:07:21,714 - INFO - Processing: src\network_manager.h
+2024-06-20 13:07:21,714 - INFO - Merged text saved to: merged_text.txt

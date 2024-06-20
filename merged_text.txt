@@ -1,0 +1,425 @@
+############# src\camera.cpp #############
+
+#include "camera.h"
+#include "config.h"
+#include "logger.h"
+#include <Arduino.h>
+
+static const char *TAG = "Camera";
+
+EventDispatcher *Camera::eventDispatcher = nullptr;
+
+void Camera::begin(EventDispatcher &dispatcher) {
+    eventDispatcher = &dispatcher;
+    if (initCamera() == ESP_OK) {
+        LOG_I(TAG, "Camera initialized successfully");
+    } else {
+        LOG_E(TAG, "Failed to initialize camera");
+    }
+
+}
+
+void Camera::captureImage() {
+    camera_fb_t *fb = nullptr;
+
+    fb = esp_camera_fb_get();
+    esp_camera_fb_return(fb);
+
+    digitalWrite(FLASH_GPIO_NUM, HIGH);
+    fb = esp_camera_fb_get();
+
+    if (!fb) {
+        LOG_E(TAG, "Image capture failed");
+        esp_camera_fb_return(fb);
+        ESP.restart();
+        return;
+    }
+
+    digitalWrite(FLASH_GPIO_NUM, LOW);
+
+
+    eventDispatcher->dispatchEvent({EVENT_IMAGE_CAPTURED, ""});
+    esp_camera_fb_return(fb);
+}
+
+esp_err_t Camera::initCamera() {
+    camera_config_t config;
+    config.ledc_channel = LEDC_CHANNEL_0;
+    config.ledc_timer = LEDC_TIMER_0;
+    config.pin_d0 = Y2_GPIO_NUM;
+    config.pin_d1 = Y3_GPIO_NUM;
+    config.pin_d2 = Y4_GPIO_NUM;
+    config.pin_d3 = Y5_GPIO_NUM;
+    config.pin_d4 = Y6_GPIO_NUM;
+    config.pin_d5 = Y7_GPIO_NUM;
+    config.pin_d6 = Y8_GPIO_NUM;
+    config.pin_d7 = Y9_GPIO_NUM;
+    config.pin_xclk = XCLK_GPIO_NUM;
+    config.pin_pclk = PCLK_GPIO_NUM;
+    config.pin_vsync = VSYNC_GPIO_NUM;
+    config.pin_href = HREF_GPIO_NUM;
+    config.pin_sccb_sda = SIOD_GPIO_NUM;
+    config.pin_sccb_scl = SIOC_GPIO_NUM;
+    config.pin_pwdn = PWDN_GPIO_NUM;
+    config.pin_reset = RESET_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_JPEG;
+    config.frame_size = FRAMESIZE_UXGA;
+    config.jpeg_quality = 15;
+    config.fb_count = 1;
+
+    pinMode(FLASH_GPIO_NUM, OUTPUT);
+
+    esp_err_t err = esp_camera_init(&config);
+    if (err != ESP_OK) {
+        LOG_E(TAG, "Failed to initialize camera: 0x%x", err);
+        return err;
+    }
+
+    sensor_t *s = esp_camera_sensor_get();
+    s->set_framesize(s, FRAMESIZE_UXGA);
+
+    return ESP_OK;
+}
+
+
+
+##########################################
+
+############# src\camera.h #############
+
+// camera.h
+#ifndef CAMERA_H
+#define CAMERA_H
+
+#include <esp_camera.h>
+#include "events.h"
+
+class Camera {
+public:
+    static void begin(EventDispatcher &dispatcher);
+
+    static void captureImage();
+
+
+private:
+    static EventDispatcher *eventDispatcher;
+
+    static esp_err_t initCamera();
+
+};
+
+#endif // CAMERA_H
+
+########################################
+
+############# src\config.h #############
+
+// config.h
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// WiFi credentials
+#define WIFI_SSID "Netgear Fiber"
+#define WIFI_PASSWORD "Mqwmu2fCakcRRmW"
+
+// WebSocket server details
+#define WS_SERVER "192.168.8.35"
+#define WS_PORT 8765
+
+// Camera configuration AI Thinker Camera board
+#define PWDN_GPIO_NUM     32
+#define RESET_GPIO_NUM    (-1)
+#define XCLK_GPIO_NUM      0
+#define SIOD_GPIO_NUM     26
+#define SIOC_GPIO_NUM     27
+#define Y9_GPIO_NUM       35
+#define Y8_GPIO_NUM       34
+#define Y7_GPIO_NUM       39
+#define Y6_GPIO_NUM       36
+#define Y5_GPIO_NUM       21
+#define Y4_GPIO_NUM       19
+#define Y3_GPIO_NUM       18
+#define Y2_GPIO_NUM        5
+#define VSYNC_GPIO_NUM    25
+#define HREF_GPIO_NUM     23
+#define PCLK_GPIO_NUM     22
+#define FLASH_GPIO_NUM 4
+
+#endif // CONFIG_H
+
+########################################
+
+############# src\events.cpp #############
+
+#include "events.h"
+
+void EventDispatcher::registerCallback(EventType type, const EventCallback& callback) {
+    callbacks[type].push_back(callback);
+}
+
+void EventDispatcher::dispatchEvent(const Event &event) {
+    for (auto &callback: callbacks[event.type]) {
+        callback(event);
+    }
+}
+
+##########################################
+
+############# src\events.h #############
+
+#ifndef EVENTS_H
+#define EVENTS_H
+
+#include <functional>
+#include <unordered_map>
+#include <queue>
+
+enum EventType {
+    EVENT_WIFI_CONNECTED,
+    EVENT_WIFI_DISCONNECTED,
+    EVENT_WEBSOCKET_CONNECTED,
+    EVENT_WEBSOCKET_DISCONNECTED,
+    EVENT_CAPTURE_IMAGE,
+    EVENT_IMAGE_CAPTURED,
+};
+
+struct Event {
+    EventType type;
+    std::string data;
+    size_t dataLength;
+};
+
+using EventCallback = std::function<void(const Event &)>;
+
+class EventDispatcher {
+public:
+    void registerCallback(EventType type, const EventCallback& callback);
+
+    void dispatchEvent(const Event &event);
+
+private:
+    std::unordered_map<EventType, std::vector<EventCallback>> callbacks;
+};
+
+#endif // EVENTS_H
+
+
+########################################
+
+############# src\logger.h #############
+
+#ifndef LOGGER_H
+#define LOGGER_H
+
+#include <Arduino.h>
+#include <cstdarg>
+
+enum LogLevel {
+    LOG_NONE = 0,   // No logging
+    LOG_ERROR,
+    LOG_WARN,
+    LOG_INFO,
+    LOG_DEBUG
+};
+
+extern LogLevel currentLogLevel; // Declare as extern
+
+extern void logger(LogLevel level, const char *tag, const char *format, ...); // Declare as extern
+
+// Macros for convenience (similar to esp_log)
+#define LOG_E(tag, format, ...) logger(LOG_ERROR, tag, format, ##__VA_ARGS__)
+#define LOG_W(tag, format, ...) logger(LOG_WARN,  tag, format, ##__VA_ARGS__)
+#define LOG_I(tag, format, ...) logger(LOG_INFO,  tag, format, ##__VA_ARGS__)
+#define LOG_D(tag, format, ...) logger(LOG_DEBUG, tag, format, ##__VA_ARGS__)
+
+#endif // LOGGER_H
+
+
+########################################
+
+############# src\main.cpp #############
+
+#include <Arduino.h>
+#include "events.h"
+#include "camera.h"
+#include "network_manager.h"
+
+#include "logger.h"
+
+#define LOG_BUFFER_SIZE 128
+
+// Define currentLogLevel
+LogLevel currentLogLevel = LOG_DEBUG;
+
+// Define the logger function
+void logger(LogLevel level, const char *tag, const char *format, ...) {
+    if (level > currentLogLevel) return; // Skip if below current log level
+
+    char message[LOG_BUFFER_SIZE];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(message, LOG_BUFFER_SIZE, format, args);
+    va_end(args);
+
+    // Formatted output
+    Serial.printf("[%s][%s]: %s\n",
+                  level == LOG_ERROR ? "ERROR" : (
+                          level == LOG_WARN ? "WARN" : (
+                                  level == LOG_INFO ? "INFO" : (
+                                          level == LOG_DEBUG ? "DEBUG" : "???"))),
+                  tag, message);
+}
+
+static const char *TAG = "MAIN";
+
+EventDispatcher eventDispatcher;
+
+void setup() {
+    Serial.begin(115200);
+
+    Camera::begin(eventDispatcher);
+    NetworkManager::begin(eventDispatcher);
+
+    eventDispatcher.registerCallback(EVENT_WEBSOCKET_CONNECTED, [](const Event &) {
+        NetworkManager::sendInitMessage();
+    });
+
+    eventDispatcher.registerCallback(EVENT_CAPTURE_IMAGE, [&](const Event &event) {
+        Camera::captureImage();
+    });
+
+    eventDispatcher.registerCallback(EVENT_IMAGE_CAPTURED, [&](const Event &event) {
+        LOG_I(TAG, "Image captured");
+//        NetworkManager::sendImage(event.data, event.dataLength);
+    });
+}
+
+void loop() {
+    NetworkManager::loop();
+}
+
+########################################
+
+############# src\network_manager.cpp #############
+
+// network_manager.cpp
+#include "network_manager.h"
+#include "config.h"
+#include <ArduinoJson.h>
+#include "logger.h"
+
+static const char *TAG = "NetworkManager";
+
+EventDispatcher *NetworkManager::eventDispatcher = nullptr;
+WebSocketsClient NetworkManager::webSocket;
+
+void NetworkManager::begin(EventDispatcher &dispatcher) {
+    eventDispatcher = &dispatcher;
+
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    int connectionAttempts = 0;
+    while (WiFiClass::status() != WL_CONNECTED && connectionAttempts < 10) {
+        delay(500);
+        Serial.print(".");
+        connectionAttempts++;
+    }
+
+    if (WiFiClass::status() == WL_CONNECTED) {
+        LOG_I(TAG, "Connected to WiFi network");
+        eventDispatcher->dispatchEvent({EVENT_WIFI_CONNECTED, ""});
+    } else {
+        LOG_E(TAG, "Failed to connect to WiFi network");
+        eventDispatcher->dispatchEvent({EVENT_WIFI_DISCONNECTED, ""});
+        return;
+    }
+
+//    webSocket.beginSSL(WS_HOST, WS_PORT, nullptr, "", "wss");
+    webSocket.begin(WS_SERVER, WS_PORT);
+    webSocket.onEvent(webSocketEvent);
+}
+
+void NetworkManager::loop() {
+    webSocket.loop();
+}
+
+void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
+    JsonDocument doc;
+
+    switch (type) {
+        case WStype_DISCONNECTED:
+            LOG_I(TAG, "WebSocket disconnected");
+            eventDispatcher->dispatchEvent({EVENT_WEBSOCKET_DISCONNECTED, ""});
+            // Handle WebSocket disconnection (e.g., reattempt connection)
+            break;
+        case WStype_CONNECTED:
+            LOG_I(TAG, "WebSocket connected");
+            eventDispatcher->dispatchEvent({EVENT_WEBSOCKET_CONNECTED, ""});
+            break;
+        case WStype_TEXT: {
+
+            DeserializationError error = deserializeJson(doc, payload, length);
+
+            if (error) {
+                LOG_E(TAG, "Failed to parse JSON: %s", error.c_str());
+                return;
+            }
+
+            const char *event_type = doc["event_type"];
+            LOG_I(TAG, "Received event: %s", event_type);
+
+            if (strcmp(event_type, "capture_image") == 0) {
+                eventDispatcher->dispatchEvent({EVENT_CAPTURE_IMAGE, ""});
+            }
+
+
+            break;
+        }
+
+    }
+
+}
+
+void NetworkManager::sendImage(const uint8_t *data, size_t length) {
+    webSocket.sendBIN(data, length);
+}
+
+void NetworkManager::sendInitMessage() {
+    webSocket.sendTXT(R"({"event_type":"init","data":{"device":"esp_cam"}})");
+    ESP_LOGD(TAG, "Sent init message");
+}
+
+###################################################
+
+############# src\network_manager.h #############
+
+// network_manager.h
+#ifndef NETWORK_MANAGER_H
+#define NETWORK_MANAGER_H
+
+#include <cstdint>
+#include "WebSocketsClient.h"
+#include "events.h"
+
+class NetworkManager {
+public:
+    static void begin(EventDispatcher &dispatcher);
+
+    static void loop();
+
+    static void sendImage(const uint8_t *data, size_t length);
+
+    static void sendInitMessage();
+
+private:
+    static EventDispatcher *eventDispatcher;
+    static WebSocketsClient webSocket;
+
+    static void webSocketEvent(WStype_t type, uint8_t *payload, size_t length);
+
+};
+
+#endif // NETWORK_MANAGER_H
+
+#################################################
+
