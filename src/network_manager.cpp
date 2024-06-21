@@ -16,16 +16,15 @@ void NetworkManager::begin(EventDispatcher &dispatcher) {
     int connectionAttempts = 0;
     while (WiFiClass::status() != WL_CONNECTED && connectionAttempts < 10) {
         delay(500);
-        Serial.print(".");
         connectionAttempts++;
     }
 
     if (WiFiClass::status() == WL_CONNECTED) {
         LOG_I(TAG, "Connected to WiFi network");
-        eventDispatcher->dispatchEvent({EVENT_WIFI_CONNECTED, ""});
+        eventDispatcher->dispatchEvent({WIFI_CONNECTED, ""});
     } else {
         LOG_E(TAG, "Failed to connect to WiFi network");
-        eventDispatcher->dispatchEvent({EVENT_WIFI_DISCONNECTED, ""});
+        eventDispatcher->dispatchEvent({WIFI_DISCONNECTED, ""});
         return;
     }
 
@@ -44,12 +43,12 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
     switch (type) {
         case WStype_DISCONNECTED:
             LOG_I(TAG, "WebSocket disconnected");
-            eventDispatcher->dispatchEvent({EVENT_WEBSOCKET_DISCONNECTED, ""});
+            eventDispatcher->dispatchEvent({WEBSOCKET_DISCONNECTED, ""});
             // Handle WebSocket disconnection (e.g., reattempt connection)
             break;
         case WStype_CONNECTED:
             LOG_I(TAG, "WebSocket connected");
-            eventDispatcher->dispatchEvent({EVENT_WEBSOCKET_CONNECTED, ""});
+            eventDispatcher->dispatchEvent({WEBSOCKET_CONNECTED, ""});
             break;
         case WStype_TEXT: {
 
@@ -64,7 +63,7 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
             LOG_I(TAG, "Received event: %s", event_type);
 
             if (strcmp(event_type, "capture_image") == 0) {
-                eventDispatcher->dispatchEvent({EVENT_CAPTURE_IMAGE, ""});
+                eventDispatcher->dispatchEvent({CAPTURE_IMAGE, ""});
             }
 
 
@@ -97,5 +96,6 @@ void NetworkManager::sendImage(const uint8_t *imageData, size_t imageLength) {
 
 void NetworkManager::sendInitMessage() {
     webSocket.sendTXT(R"({"event_type":"init","data":{"device":"esp_cam"}})");
-    ESP_LOGD(TAG, "Sent init message");
+    ESP_LOGI(TAG, "Sent init message");
 }
+

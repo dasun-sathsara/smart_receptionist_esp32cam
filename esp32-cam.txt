@@ -20,7 +20,7 @@ void Camera::begin(EventDispatcher &dispatcher) {
 }
 
 void Camera::captureImage() {
-    camera_fb_t *fb = nullptr;
+    camera_fb_t *fb;
 
     fb = esp_camera_fb_get();
     esp_camera_fb_return(fb);
@@ -34,11 +34,11 @@ void Camera::captureImage() {
         ESP.restart();
         return;
     }
-
     digitalWrite(FLASH_GPIO_NUM, LOW);
 
-
-    eventDispatcher->dispatchEvent({EVENT_IMAGE_CAPTURED, ""});
+    eventDispatcher->dispatchEvent(
+            {IMAGE_CAPTURED, std::string(reinterpret_cast<const char *>(fb->buf), fb->len)}
+    );
     esp_camera_fb_return(fb);
 }
 
@@ -176,12 +176,12 @@ void EventDispatcher::dispatchEvent(const Event &event) {
 #include <queue>
 
 enum EventType {
-    EVENT_WIFI_CONNECTED,
-    EVENT_WIFI_DISCONNECTED,
-    EVENT_WEBSOCKET_CONNECTED,
-    EVENT_WEBSOCKET_DISCONNECTED,
-    EVENT_CAPTURE_IMAGE,
-    EVENT_IMAGE_CAPTURED,
+    WIFI_CONNECTED,
+    WIFI_DISCONNECTED,
+    WEBSOCKET_CONNECTED,
+    WEBSOCKET_DISCONNECTED,
+    CAPTURE_IMAGE,
+    IMAGE_CAPTURED,
 };
 
 struct Event {
@@ -281,17 +281,17 @@ void setup() {
     Camera::begin(eventDispatcher);
     NetworkManager::begin(eventDispatcher);
 
-    eventDispatcher.registerCallback(EVENT_WEBSOCKET_CONNECTED, [](const Event &) {
+    eventDispatcher.registerCallback(WEBSOCKET_CONNECTED, [](const Event &) {
         NetworkManager::sendInitMessage();
     });
 
-    eventDispatcher.registerCallback(EVENT_CAPTURE_IMAGE, [&](const Event &event) {
+    eventDispatcher.registerCallback(CAPTURE_IMAGE, [&](const Event &event) {
         Camera::captureImage();
     });
 
-    eventDispatcher.registerCallback(EVENT_IMAGE_CAPTURED, [&](const Event &event) {
+    eventDispatcher.registerCallback(IMAGE_CAPTURED, [&](const Event &event) {
         LOG_I(TAG, "Image captured");
-//        NetworkManager::sendImage(event.data, event.dataLength);
+        NetworkManager::sendImage(reinterpret_cast<const uint8_t *>(event.data.c_str()), event.data.length());
     });
 }
 
@@ -327,10 +327,10 @@ void NetworkManager::begin(EventDispatcher &dispatcher) {
 
     if (WiFiClass::status() == WL_CONNECTED) {
         LOG_I(TAG, "Connected to WiFi network");
-        eventDispatcher->dispatchEvent({EVENT_WIFI_CONNECTED, ""});
+        eventDispatcher->dispatchEvent({WIFI_CONNECTED, ""});
     } else {
         LOG_E(TAG, "Failed to connect to WiFi network");
-        eventDispatcher->dispatchEvent({EVENT_WIFI_DISCONNECTED, ""});
+        eventDispatcher->dispatchEvent({WIFI_DISCONNECTED, ""});
         return;
     }
 
@@ -349,12 +349,12 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
     switch (type) {
         case WStype_DISCONNECTED:
             LOG_I(TAG, "WebSocket disconnected");
-            eventDispatcher->dispatchEvent({EVENT_WEBSOCKET_DISCONNECTED, ""});
+            eventDispatcher->dispatchEvent({WEBSOCKET_DISCONNECTED, ""});
             // Handle WebSocket disconnection (e.g., reattempt connection)
             break;
         case WStype_CONNECTED:
             LOG_I(TAG, "WebSocket connected");
-            eventDispatcher->dispatchEvent({EVENT_WEBSOCKET_CONNECTED, ""});
+            eventDispatcher->dispatchEvent({WEBSOCKET_CONNECTED, ""});
             break;
         case WStype_TEXT: {
 
@@ -369,7 +369,7 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
             LOG_I(TAG, "Received event: %s", event_type);
 
             if (strcmp(event_type, "capture_image") == 0) {
-                eventDispatcher->dispatchEvent({EVENT_CAPTURE_IMAGE, ""});
+                eventDispatcher->dispatchEvent({CAPTURE_IMAGE, ""});
             }
 
 
@@ -380,8 +380,24 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
 
 }
 
-void NetworkManager::sendImage(const uint8_t *data, size_t length) {
-    webSocket.sendBIN(data, length);
+void NetworkManager::sendImage(const uint8_t *imageData, size_t imageLength) {
+    // Calculate the total length with the "IMAGE:" prefix
+    size_t totalLength = imageLength + 6; // 6 for "IMAGE:"
+
+    // Create a new buffer to hold the combined data
+    auto *combinedData = new uint8_t[totalLength];
+
+    // Copy the "IMAGE:" prefix
+    memcpy(combinedData, "IMAGE:", 6);
+
+    // Copy the image data
+    memcpy(combinedData + 6, imageData, imageLength);
+
+    // Send the combined data as binary
+    webSocket.sendBIN(combinedData, totalLength);
+
+    // Free the dynamically allocated memory
+    delete[] combinedData;
 }
 
 void NetworkManager::sendInitMessage() {

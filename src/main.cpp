@@ -2,6 +2,7 @@
 #include "events.h"
 #include "camera.h"
 #include "network_manager.h"
+#include "esp_now_manager.h"
 
 #include "logger.h"
 
@@ -38,17 +39,17 @@ void setup() {
 
     Camera::begin(eventDispatcher);
     NetworkManager::begin(eventDispatcher);
+    ESPNow::begin(eventDispatcher);
 
-    eventDispatcher.registerCallback(EVENT_WEBSOCKET_CONNECTED, [](const Event &) {
+    eventDispatcher.registerCallback(WEBSOCKET_CONNECTED, [](const Event &) {
         NetworkManager::sendInitMessage();
     });
 
-    eventDispatcher.registerCallback(EVENT_CAPTURE_IMAGE, [&](const Event &event) {
+    eventDispatcher.registerCallback(CAPTURE_IMAGE, [&](const Event &event) {
         Camera::captureImage();
     });
 
-    eventDispatcher.registerCallback(EVENT_IMAGE_CAPTURED, [&](const Event &event) {
-        LOG_I(TAG, "Image captured");
+    eventDispatcher.registerCallback(IMAGE_CAPTURED, [&](const Event &event) {
         NetworkManager::sendImage(reinterpret_cast<const uint8_t *>(event.data.c_str()), event.data.length());
     });
 }

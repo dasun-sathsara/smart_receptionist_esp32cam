@@ -6,12 +6,12 @@
 #include <queue>
 
 enum EventType {
-    EVENT_WIFI_CONNECTED,
-    EVENT_WIFI_DISCONNECTED,
-    EVENT_WEBSOCKET_CONNECTED,
-    EVENT_WEBSOCKET_DISCONNECTED,
-    EVENT_CAPTURE_IMAGE,
-    EVENT_IMAGE_CAPTURED,
+    WIFI_CONNECTED,
+    WIFI_DISCONNECTED,
+    WEBSOCKET_CONNECTED,
+    WEBSOCKET_DISCONNECTED,
+    CAPTURE_IMAGE,
+    IMAGE_CAPTURED,
 };
 
 struct Event {
@@ -24,7 +24,7 @@ using EventCallback = std::function<void(const Event &)>;
 
 class EventDispatcher {
 public:
-    void registerCallback(EventType type, const EventCallback& callback);
+    void registerCallback(EventType type, const EventCallback &callback);
 
     void dispatchEvent(const Event &event);
 

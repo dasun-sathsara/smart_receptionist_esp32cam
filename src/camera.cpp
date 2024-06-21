@@ -35,7 +35,7 @@ void Camera::captureImage() {
     digitalWrite(FLASH_GPIO_NUM, LOW);
 
     eventDispatcher->dispatchEvent(
-            {EVENT_IMAGE_CAPTURED, std::string(reinterpret_cast<const char *>(fb->buf), fb->len)}
+            {IMAGE_CAPTURED, std::string(reinterpret_cast<const char *>(fb->buf), fb->len)}
     );
     esp_camera_fb_return(fb);
 }
