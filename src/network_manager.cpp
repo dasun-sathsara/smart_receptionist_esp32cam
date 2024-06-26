@@ -43,12 +43,10 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
     switch (type) {
         case WStype_DISCONNECTED:
             LOG_I(TAG, "WebSocket disconnected");
-            eventDispatcher->dispatchEvent({WEBSOCKET_DISCONNECTED, ""});
-            // Handle WebSocket disconnection (e.g., reattempt connection)
             break;
         case WStype_CONNECTED:
             LOG_I(TAG, "WebSocket connected");
-            eventDispatcher->dispatchEvent({WEBSOCKET_CONNECTED, ""});
+            eventDispatcher->dispatchEvent({WS_CONNECTED, ""});
             break;
         case WStype_TEXT: {
 
@@ -63,9 +61,8 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
             LOG_I(TAG, "Received event: %s", event_type);
 
             if (strcmp(event_type, "capture_image") == 0) {
-                eventDispatcher->dispatchEvent({CAPTURE_IMAGE, ""});
+                eventDispatcher->dispatchEvent({CMD_CAPTURE_IMAGE, ""});
             }
-
 
             break;
         }
@@ -75,22 +72,16 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
 }
 
 void NetworkManager::sendImage(const uint8_t *imageData, size_t imageLength) {
-    // Calculate the total length with the "IMAGE:" prefix
     size_t totalLength = imageLength + 6; // 6 for "IMAGE:"
 
-    // Create a new buffer to hold the combined data
     auto *combinedData = new uint8_t[totalLength];
 
-    // Copy the "IMAGE:" prefix
     memcpy(combinedData, "IMAGE:", 6);
 
-    // Copy the image data
     memcpy(combinedData + 6, imageData, imageLength);
 
-    // Send the combined data as binary
     webSocket.sendBIN(combinedData, totalLength);
 
-    // Free the dynamically allocated memory
     delete[] combinedData;
 }
 

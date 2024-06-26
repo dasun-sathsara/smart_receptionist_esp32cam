@@ -3,8 +3,8 @@
 #define CONFIG_H
 
 // WiFi credentials
-#define WIFI_SSID "Netgear Fiber"
-#define WIFI_PASSWORD "Mqwmu2fCakcRRmW"
+#define WIFI_SSID "Xperia 1 II"
+#define WIFI_PASSWORD "12345678"
 
 // WebSocket server details
 #define WS_SERVER "192.168.8.35"

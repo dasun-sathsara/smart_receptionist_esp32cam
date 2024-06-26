@@ -1,92 +1,4 @@
-############# src\camera.cpp #############
-
-#include "camera.h"
-#include "config.h"
-#include "logger.h"
-#include <Arduino.h>
-
-static const char *TAG = "Camera";
-
-EventDispatcher *Camera::eventDispatcher = nullptr;
-
-void Camera::begin(EventDispatcher &dispatcher) {
-    eventDispatcher = &dispatcher;
-    if (initCamera() == ESP_OK) {
-        LOG_I(TAG, "Camera initialized successfully");
-    } else {
-        LOG_E(TAG, "Failed to initialize camera");
-    }
-
-}
-
-void Camera::captureImage() {
-    camera_fb_t *fb;
-
-    fb = esp_camera_fb_get();
-    esp_camera_fb_return(fb);
-
-    digitalWrite(FLASH_GPIO_NUM, HIGH);
-    fb = esp_camera_fb_get();
-
-    if (!fb) {
-        LOG_E(TAG, "Image capture failed");
-        esp_camera_fb_return(fb);
-        ESP.restart();
-        return;
-    }
-    digitalWrite(FLASH_GPIO_NUM, LOW);
-
-    eventDispatcher->dispatchEvent(
-            {IMAGE_CAPTURED, std::string(reinterpret_cast<const char *>(fb->buf), fb->len)}
-    );
-    esp_camera_fb_return(fb);
-}
-
-esp_err_t Camera::initCamera() {
-    camera_config_t config;
-    config.ledc_channel = LEDC_CHANNEL_0;
-    config.ledc_timer = LEDC_TIMER_0;
-    config.pin_d0 = Y2_GPIO_NUM;
-    config.pin_d1 = Y3_GPIO_NUM;
-    config.pin_d2 = Y4_GPIO_NUM;
-    config.pin_d3 = Y5_GPIO_NUM;
-    config.pin_d4 = Y6_GPIO_NUM;
-    config.pin_d5 = Y7_GPIO_NUM;
-    config.pin_d6 = Y8_GPIO_NUM;
-    config.pin_d7 = Y9_GPIO_NUM;
-    config.pin_xclk = XCLK_GPIO_NUM;
-    config.pin_pclk = PCLK_GPIO_NUM;
-    config.pin_vsync = VSYNC_GPIO_NUM;
-    config.pin_href = HREF_GPIO_NUM;
-    config.pin_sccb_sda = SIOD_GPIO_NUM;
-    config.pin_sccb_scl = SIOC_GPIO_NUM;
-    config.pin_pwdn = PWDN_GPIO_NUM;
-    config.pin_reset = RESET_GPIO_NUM;
-    config.xclk_freq_hz = 20000000;
-    config.pixel_format = PIXFORMAT_JPEG;
-    config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 15;
-    config.fb_count = 1;
-
-    pinMode(FLASH_GPIO_NUM, OUTPUT);
-
-    esp_err_t err = esp_camera_init(&config);
-    if (err != ESP_OK) {
-        LOG_E(TAG, "Failed to initialize camera: 0x%x", err);
-        return err;
-    }
-
-    sensor_t *s = esp_camera_sensor_get();
-    s->set_framesize(s, FRAMESIZE_UXGA);
-
-    return ESP_OK;
-}
-
-
-
-##########################################
-
-############# src\camera.h #############
+############# include\camera.h #############
 
 // camera.h
 #ifndef CAMERA_H
@@ -111,9 +23,9 @@ private:
 
 #endif // CAMERA_H
 
-########################################
+############################################
 
-############# src\config.h #############
+############# include\config.h #############
 
 // config.h
 #ifndef CONFIG_H
@@ -148,25 +60,39 @@ private:
 
 #endif // CONFIG_H
 
-########################################
+############################################
 
-############# src\events.cpp #############
+############# include\esp_now_manager.h #############
 
+
+#ifndef CAM_ESP_NOW_MANAGER_H
+#define CAM_ESP_NOW_MANAGER_H
+
+#include <Arduino.h>
+#include <esp_now.h>
 #include "events.h"
 
-void EventDispatcher::registerCallback(EventType type, const EventCallback& callback) {
-    callbacks[type].push_back(callback);
-}
+#define ESPNOW_CHANNEL 1
 
-void EventDispatcher::dispatchEvent(const Event &event) {
-    for (auto &callback: callbacks[event.type]) {
-        callback(event);
-    }
-}
+class ESPNow {
+public:
+    static void begin(EventDispatcher &dispatcher);
 
-##########################################
+private:
+    static void onDataReceived(const uint8_t *mac, const uint8_t *data, int len);
 
-############# src\events.h #############
+    static void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
+
+    static EventDispatcher *eventDispatcher;
+};
+
+
+#endif //CAM_ESP_NOW_MANAGER_H
+
+
+#####################################################
+
+############# include\events.h #############
 
 #ifndef EVENTS_H
 #define EVENTS_H
@@ -178,9 +104,8 @@ void EventDispatcher::dispatchEvent(const Event &event) {
 enum EventType {
     WIFI_CONNECTED,
     WIFI_DISCONNECTED,
-    WEBSOCKET_CONNECTED,
-    WEBSOCKET_DISCONNECTED,
-    CAPTURE_IMAGE,
+    WS_CONNECTED,
+    CMD_CAPTURE_IMAGE,
     IMAGE_CAPTURED,
 };
 
@@ -194,7 +119,7 @@ using EventCallback = std::function<void(const Event &)>;
 
 class EventDispatcher {
 public:
-    void registerCallback(EventType type, const EventCallback& callback);
+    void registerCallback(EventType type, const EventCallback &callback);
 
     void dispatchEvent(const Event &event);
 
@@ -205,9 +130,9 @@ private:
 #endif // EVENTS_H
 
 
-########################################
+############################################
 
-############# src\logger.h #############
+############# include\logger.h #############
 
 #ifndef LOGGER_H
 #define LOGGER_H
@@ -236,7 +161,188 @@ extern void logger(LogLevel level, const char *tag, const char *format, ...); //
 #endif // LOGGER_H
 
 
-########################################
+############################################
+
+############# include\network_manager.h #############
+
+// network_manager.h
+#ifndef NETWORK_MANAGER_H
+#define NETWORK_MANAGER_H
+
+#include <cstdint>
+#include "WebSocketsClient.h"
+#include "events.h"
+
+class NetworkManager {
+public:
+    static void begin(EventDispatcher &dispatcher);
+
+    static void loop();
+
+    static void sendImage(const uint8_t *data, size_t length);
+
+    static void sendInitMessage();
+
+private:
+    static EventDispatcher *eventDispatcher;
+    static WebSocketsClient webSocket;
+
+    static void webSocketEvent(WStype_t type, uint8_t *payload, size_t length);
+
+};
+
+#endif // NETWORK_MANAGER_H
+
+#####################################################
+
+############# src\camera.cpp #############
+
+#include "camera.h"
+#include "config.h"
+#include "logger.h"
+#include <Arduino.h>
+
+static const char *TAG = "Camera";
+
+EventDispatcher *Camera::eventDispatcher = nullptr;
+
+void Camera::begin(EventDispatcher &dispatcher) {
+    eventDispatcher = &dispatcher;
+    if (initCamera() == ESP_OK) {
+        LOG_I(TAG, "Camera initialized successfully");
+    } else {
+        LOG_E(TAG, "Failed to initialize camera");
+    }
+
+}
+
+void Camera::captureImage() {
+    camera_fb_t *fb;
+
+    fb = esp_camera_fb_get();
+    esp_camera_fb_return(fb);
+
+    digitalWrite(FLASH_GPIO_NUM, HIGH);
+    delay(80);
+    fb = esp_camera_fb_get();
+
+    if (!fb) {
+        LOG_E(TAG, "Image capture failed");
+        esp_camera_fb_return(fb);
+        ESP.restart();
+        return;
+    }
+
+    digitalWrite(FLASH_GPIO_NUM, LOW);
+
+    eventDispatcher->dispatchEvent(
+            {IMAGE_CAPTURED, std::string(reinterpret_cast<const char *>(fb->buf), fb->len)}
+    );
+    esp_camera_fb_return(fb);
+}
+
+esp_err_t Camera::initCamera() {
+    camera_config_t config;
+    config.ledc_channel = LEDC_CHANNEL_0;
+    config.ledc_timer = LEDC_TIMER_0;
+    config.pin_d0 = Y2_GPIO_NUM;
+    config.pin_d1 = Y3_GPIO_NUM;
+    config.pin_d2 = Y4_GPIO_NUM;
+    config.pin_d3 = Y5_GPIO_NUM;
+    config.pin_d4 = Y6_GPIO_NUM;
+    config.pin_d5 = Y7_GPIO_NUM;
+    config.pin_d6 = Y8_GPIO_NUM;
+    config.pin_d7 = Y9_GPIO_NUM;
+    config.pin_xclk = XCLK_GPIO_NUM;
+    config.pin_pclk = PCLK_GPIO_NUM;
+    config.pin_vsync = VSYNC_GPIO_NUM;
+    config.pin_href = HREF_GPIO_NUM;
+    config.pin_sccb_sda = SIOD_GPIO_NUM;
+    config.pin_sccb_scl = SIOC_GPIO_NUM;
+    config.pin_pwdn = PWDN_GPIO_NUM;
+    config.pin_reset = RESET_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_JPEG;
+    config.frame_size = FRAMESIZE_UXGA;
+    config.fb_location = CAMERA_FB_IN_PSRAM;
+    config.jpeg_quality = 8;
+    config.fb_count = 1;
+
+    pinMode(FLASH_GPIO_NUM, OUTPUT);
+
+    esp_err_t err = esp_camera_init(&config);
+    if (err != ESP_OK) {
+        LOG_E(TAG, "Failed to initialize camera: 0x%x", err);
+        return err;
+    }
+
+    sensor_t *s = esp_camera_sensor_get();
+    s->set_framesize(s, FRAMESIZE_UXGA);
+
+    return ESP_OK;
+}
+
+
+##########################################
+
+############# src\esp_now_manager.cpp #############
+
+#include "esp_now_manager.h"
+#include "logger.h"
+
+static const char *TAG = "ESPNow";
+
+EventDispatcher *ESPNow::eventDispatcher = nullptr;
+
+void ESPNow::begin(EventDispatcher &dispatcher) {
+    eventDispatcher = &dispatcher;
+
+    if (esp_now_init() != ESP_OK) {
+        LOG_E(TAG, "Error initializing ESP-NOW");
+        return;
+    }
+
+    esp_now_register_recv_cb(onDataReceived);
+    esp_now_register_send_cb(onDataSent);
+
+    LOG_I(TAG, "ESP-NOW initialized successfully");
+}
+
+void ESPNow::onDataReceived(const uint8_t *mac, const uint8_t *data, int len) {
+    char *receivedData = (char *) malloc(len + 1);
+    memcpy(receivedData, data, len);
+    receivedData[len] = '\0';
+
+    LOG_I(TAG, "Received command: %s", receivedData);
+
+    if (strcmp(receivedData, "capture_image") == 0) {
+        eventDispatcher->dispatchEvent({CMD_CAPTURE_IMAGE, ""});
+    }
+
+    free(receivedData);
+}
+
+void ESPNow::onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+    LOG_I(TAG, "Last Packet Send Status: %s", status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+###################################################
+
+############# src\events.cpp #############
+
+#include "events.h"
+
+void EventDispatcher::registerCallback(EventType type, const EventCallback& callback) {
+    callbacks[type].push_back(callback);
+}
+
+void EventDispatcher::dispatchEvent(const Event &event) {
+    for (auto &callback: callbacks[event.type]) {
+        callback(event);
+    }
+}
+
+##########################################
 
 ############# src\main.cpp #############
 
@@ -244,7 +350,8 @@ extern void logger(LogLevel level, const char *tag, const char *format, ...); //
 #include "events.h"
 #include "camera.h"
 #include "network_manager.h"
-
+#include "esp_now_manager.h"
+#include <esp_heap_caps.h>
 #include "logger.h"
 
 #define LOG_BUFFER_SIZE 128
@@ -278,21 +385,23 @@ EventDispatcher eventDispatcher;
 void setup() {
     Serial.begin(115200);
 
-    Camera::begin(eventDispatcher);
-    NetworkManager::begin(eventDispatcher);
-
-    eventDispatcher.registerCallback(WEBSOCKET_CONNECTED, [](const Event &) {
+    eventDispatcher.registerCallback(WS_CONNECTED, [](const Event &) {
         NetworkManager::sendInitMessage();
     });
 
-    eventDispatcher.registerCallback(CAPTURE_IMAGE, [&](const Event &event) {
+    eventDispatcher.registerCallback(CMD_CAPTURE_IMAGE, [&](const Event &event) {
         Camera::captureImage();
     });
 
     eventDispatcher.registerCallback(IMAGE_CAPTURED, [&](const Event &event) {
-        LOG_I(TAG, "Image captured");
         NetworkManager::sendImage(reinterpret_cast<const uint8_t *>(event.data.c_str()), event.data.length());
+        LOG_I(TAG, "Image sent");
     });
+
+    Camera::begin(eventDispatcher);
+    NetworkManager::begin(eventDispatcher);
+    ESPNow::begin(eventDispatcher);
+
 }
 
 void loop() {
@@ -321,7 +430,6 @@ void NetworkManager::begin(EventDispatcher &dispatcher) {
     int connectionAttempts = 0;
     while (WiFiClass::status() != WL_CONNECTED && connectionAttempts < 10) {
         delay(500);
-        Serial.print(".");
         connectionAttempts++;
     }
 
@@ -349,12 +457,10 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
     switch (type) {
         case WStype_DISCONNECTED:
             LOG_I(TAG, "WebSocket disconnected");
-            eventDispatcher->dispatchEvent({WEBSOCKET_DISCONNECTED, ""});
-            // Handle WebSocket disconnection (e.g., reattempt connection)
             break;
         case WStype_CONNECTED:
             LOG_I(TAG, "WebSocket connected");
-            eventDispatcher->dispatchEvent({WEBSOCKET_CONNECTED, ""});
+            eventDispatcher->dispatchEvent({WS_CONNECTED, ""});
             break;
         case WStype_TEXT: {
 
@@ -369,9 +475,8 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
             LOG_I(TAG, "Received event: %s", event_type);
 
             if (strcmp(event_type, "capture_image") == 0) {
-                eventDispatcher->dispatchEvent({CAPTURE_IMAGE, ""});
+                eventDispatcher->dispatchEvent({CMD_CAPTURE_IMAGE, ""});
             }
-
 
             break;
         }
@@ -381,61 +486,25 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
 }
 
 void NetworkManager::sendImage(const uint8_t *imageData, size_t imageLength) {
-    // Calculate the total length with the "IMAGE:" prefix
     size_t totalLength = imageLength + 6; // 6 for "IMAGE:"
 
-    // Create a new buffer to hold the combined data
     auto *combinedData = new uint8_t[totalLength];
 
-    // Copy the "IMAGE:" prefix
     memcpy(combinedData, "IMAGE:", 6);
 
-    // Copy the image data
     memcpy(combinedData + 6, imageData, imageLength);
 
-    // Send the combined data as binary
     webSocket.sendBIN(combinedData, totalLength);
 
-    // Free the dynamically allocated memory
     delete[] combinedData;
 }
 
 void NetworkManager::sendInitMessage() {
     webSocket.sendTXT(R"({"event_type":"init","data":{"device":"esp_cam"}})");
-    ESP_LOGD(TAG, "Sent init message");
+    ESP_LOGI(TAG, "Sent init message");
 }
 
+
+
 ###################################################
-
-############# src\network_manager.h #############
-
-// network_manager.h
-#ifndef NETWORK_MANAGER_H
-#define NETWORK_MANAGER_H
-
-#include <cstdint>
-#include "WebSocketsClient.h"
-#include "events.h"
-
-class NetworkManager {
-public:
-    static void begin(EventDispatcher &dispatcher);
-
-    static void loop();
-
-    static void sendImage(const uint8_t *data, size_t length);
-
-    static void sendInitMessage();
-
-private:
-    static EventDispatcher *eventDispatcher;
-    static WebSocketsClient webSocket;
-
-    static void webSocketEvent(WStype_t type, uint8_t *payload, size_t length);
-
-};
-
-#endif // NETWORK_MANAGER_H
-
-#################################################
 

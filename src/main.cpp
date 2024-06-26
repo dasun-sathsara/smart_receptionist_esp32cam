@@ -3,7 +3,7 @@
 #include "camera.h"
 #include "network_manager.h"
 #include "esp_now_manager.h"
-
+#include <esp_heap_caps.h>
 #include "logger.h"
 
 #define LOG_BUFFER_SIZE 128
@@ -37,21 +37,23 @@ EventDispatcher eventDispatcher;
 void setup() {
     Serial.begin(115200);
 
-    Camera::begin(eventDispatcher);
-    NetworkManager::begin(eventDispatcher);
-    ESPNow::begin(eventDispatcher);
-
-    eventDispatcher.registerCallback(WEBSOCKET_CONNECTED, [](const Event &) {
+    eventDispatcher.registerCallback(WS_CONNECTED, [](const Event &) {
         NetworkManager::sendInitMessage();
     });
 
-    eventDispatcher.registerCallback(CAPTURE_IMAGE, [&](const Event &event) {
+    eventDispatcher.registerCallback(CMD_CAPTURE_IMAGE, [&](const Event &event) {
         Camera::captureImage();
     });
 
     eventDispatcher.registerCallback(IMAGE_CAPTURED, [&](const Event &event) {
         NetworkManager::sendImage(reinterpret_cast<const uint8_t *>(event.data.c_str()), event.data.length());
+        LOG_I(TAG, "Image sent");
     });
+
+    Camera::begin(eventDispatcher);
+    NetworkManager::begin(eventDispatcher);
+    ESPNow::begin(eventDispatcher);
+
 }
 
 void loop() {

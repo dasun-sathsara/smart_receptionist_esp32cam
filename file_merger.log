@@ -1,20 +1,24 @@
-2024-06-20 13:07:21,714 - INFO - Processing: src\camera.cpp
-2024-06-20 13:07:21,714 - INFO - Processing: src\camera.h
-2024-06-20 13:07:21,714 - INFO - Processing: src\config.h
-2024-06-20 13:07:21,714 - INFO - Processing: src\events.cpp
-2024-06-20 13:07:21,714 - INFO - Processing: src\events.h
-2024-06-20 13:07:21,714 - INFO - Processing: src\logger.h
-2024-06-20 13:07:21,714 - INFO - Processing: src\main.cpp
-2024-06-20 13:07:21,714 - INFO - Processing: src\network_manager.cpp
-2024-06-20 13:07:21,714 - INFO - Processing: src\network_manager.h
-2024-06-20 13:07:21,714 - INFO - Merged text saved to: merged_text.txt
-2024-06-20 18:54:17,621 - INFO - Processing: src\camera.cpp
-2024-06-20 18:54:17,621 - INFO - Processing: src\camera.h
-2024-06-20 18:54:17,621 - INFO - Processing: src\config.h
-2024-06-20 18:54:17,621 - INFO - Processing: src\events.cpp
-2024-06-20 18:54:17,621 - INFO - Processing: src\events.h
-2024-06-20 18:54:17,621 - INFO - Processing: src\logger.h
-2024-06-20 18:54:17,621 - INFO - Processing: src\main.cpp
-2024-06-20 18:54:17,621 - INFO - Processing: src\network_manager.cpp
-2024-06-20 18:54:17,621 - INFO - Processing: src\network_manager.h
-2024-06-20 18:54:17,621 - INFO - Merged text saved to: merged_text.txt
+2024-06-26 10:56:46,532 - INFO - Processing: include\camera.h
+2024-06-26 10:56:46,532 - INFO - Processing: include\config.h
+2024-06-26 10:56:46,532 - INFO - Processing: include\esp_now_manager.h
+2024-06-26 10:56:46,532 - INFO - Processing: include\events.h
+2024-06-26 10:56:46,532 - INFO - Processing: include\logger.h
+2024-06-26 10:56:46,532 - INFO - Processing: include\network_manager.h
+2024-06-26 10:56:46,532 - INFO - Processing: src\camera.cpp
+2024-06-26 10:56:46,532 - INFO - Processing: src\esp_now_manager.cpp
+2024-06-26 10:56:46,532 - INFO - Processing: src\events.cpp
+2024-06-26 10:56:46,532 - INFO - Processing: src\main.cpp
+2024-06-26 10:56:46,532 - INFO - Processing: src\network_manager.cpp
+2024-06-26 10:56:46,532 - INFO - Merged text saved to: merged_text.txt
+2024-06-26 11:45:59,995 - INFO - Processing: include\camera.h
+2024-06-26 11:45:59,997 - INFO - Processing: include\config.h
+2024-06-26 11:45:59,997 - INFO - Processing: include\esp_now_manager.h
+2024-06-26 11:45:59,997 - INFO - Processing: include\events.h
+2024-06-26 11:45:59,997 - INFO - Processing: include\logger.h
+2024-06-26 11:45:59,998 - INFO - Processing: include\network_manager.h
+2024-06-26 11:45:59,998 - INFO - Processing: src\camera.cpp
+2024-06-26 11:45:59,998 - INFO - Processing: src\esp_now_manager.cpp
+2024-06-26 11:45:59,998 - INFO - Processing: src\events.cpp
+2024-06-26 11:45:59,998 - INFO - Processing: src\main.cpp
+2024-06-26 11:45:59,998 - INFO - Processing: src\network_manager.cpp
+2024-06-26 11:45:59,999 - INFO - Merged text saved to: merged_text.txt

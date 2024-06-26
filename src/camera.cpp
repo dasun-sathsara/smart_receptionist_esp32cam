@@ -24,6 +24,7 @@ void Camera::captureImage() {
     esp_camera_fb_return(fb);
 
     digitalWrite(FLASH_GPIO_NUM, HIGH);
+    delay(80);
     fb = esp_camera_fb_get();
 
     if (!fb) {
@@ -32,6 +33,7 @@ void Camera::captureImage() {
         ESP.restart();
         return;
     }
+
     digitalWrite(FLASH_GPIO_NUM, LOW);
 
     eventDispatcher->dispatchEvent(
@@ -63,7 +65,8 @@ esp_err_t Camera::initCamera() {
     config.xclk_freq_hz = 20000000;
     config.pixel_format = PIXFORMAT_JPEG;
     config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 15;
+    config.fb_location = CAMERA_FB_IN_PSRAM;
+    config.jpeg_quality = 8;
     config.fb_count = 1;
 
     pinMode(FLASH_GPIO_NUM, OUTPUT);
@@ -79,4 +82,3 @@ esp_err_t Camera::initCamera() {
 
     return ESP_OK;
 }
-

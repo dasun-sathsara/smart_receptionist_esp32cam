@@ -27,7 +27,7 @@ void ESPNow::onDataReceived(const uint8_t *mac, const uint8_t *data, int len) {
     LOG_I(TAG, "Received command: %s", receivedData);
 
     if (strcmp(receivedData, "capture_image") == 0) {
-        eventDispatcher->dispatchEvent({CAPTURE_IMAGE, ""});
+        eventDispatcher->dispatchEvent({CMD_CAPTURE_IMAGE, ""});
     }
 
     free(receivedData);
