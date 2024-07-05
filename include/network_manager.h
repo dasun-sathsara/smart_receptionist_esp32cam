@@ -5,16 +5,21 @@
 #include <cstdint>
 #include "WebSocketsClient.h"
 #include "events.h"
+#include "ArduinoJson.h"
 
 class NetworkManager {
 public:
-    static void begin(EventDispatcher &dispatcher);
+    void begin(EventDispatcher &dispatcher);
 
-    static void loop();
+    [[noreturn]] static void loop(void *pvParameters);
 
     static void sendImage(const uint8_t *data, size_t length);
 
     static void sendInitMessage();
+
+    [[noreturn]] static void reconnectTask(void *pvParameters);
+
+    static void sendEvent(const char *eventType, const JsonObject &data);
 
 private:
     static EventDispatcher *eventDispatcher;

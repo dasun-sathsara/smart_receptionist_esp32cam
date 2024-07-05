@@ -33,6 +33,7 @@ void logger(LogLevel level, const char *tag, const char *format, ...) {
 static const char *TAG = "MAIN";
 
 EventDispatcher eventDispatcher;
+NetworkManager network;
 
 void setup() {
     Serial.begin(115200);
@@ -51,11 +52,10 @@ void setup() {
     });
 
     Camera::begin(eventDispatcher);
-    NetworkManager::begin(eventDispatcher);
+    network.begin(eventDispatcher);
     ESPNow::begin(eventDispatcher);
 
 }
 
 void loop() {
-    NetworkManager::loop();
 }

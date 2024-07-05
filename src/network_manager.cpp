@@ -25,16 +25,45 @@ void NetworkManager::begin(EventDispatcher &dispatcher) {
     } else {
         LOG_E(TAG, "Failed to connect to WiFi network");
         eventDispatcher->dispatchEvent({WIFI_DISCONNECTED, ""});
-        return;
     }
 
 //    webSocket.beginSSL(WS_HOST, WS_PORT, nullptr, "", "wss");
     webSocket.begin(WS_SERVER, WS_PORT);
     webSocket.onEvent(webSocketEvent);
+
+    webSocket.enableHeartbeat(15000, 3000, 2);
+
+    xTaskCreate(NetworkManager::loop, "WiFi Task", 8192, this, 2, nullptr);
+    xTaskCreate(NetworkManager::reconnectTask, "WiFi Reconnect Task", 2048, this, 1, nullptr);
 }
 
-void NetworkManager::loop() {
-    webSocket.loop();
+[[noreturn]] void NetworkManager::loop(void *pvParameters) {
+    while (true) {
+        webSocket.loop();
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+[[noreturn]] void NetworkManager::reconnectTask(void *pvParameters) {
+    while (true) {
+        if (WiFiClass::status() != WL_CONNECTED) {
+            LOG_I(TAG, "Reconnecting to WiFi network...");
+            WiFi.reconnect();
+            int connectionAttempts = 0;
+            while (WiFiClass::status() != WL_CONNECTED && connectionAttempts < 10) {
+                delay(500);
+                connectionAttempts++;
+            }
+            if (WiFiClass::status() == WL_CONNECTED) {
+                LOG_I(TAG, "Reconnected to WiFi network");
+                eventDispatcher->dispatchEvent({WIFI_CONNECTED, ""});
+            } else {
+                LOG_E(TAG, "Failed to reconnect to WiFi network");
+                eventDispatcher->dispatchEvent({WIFI_DISCONNECTED, ""});
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(60000)); // Check every 1 minute
+    }
 }
 
 void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
@@ -63,23 +92,27 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
             if (strcmp(event_type, "capture_image") == 0) {
                 eventDispatcher->dispatchEvent({CMD_CAPTURE_IMAGE, ""});
             }
-
             break;
         }
+        case WStype_PING:
+            LOG_I(TAG, "Received PING");
+            break;
 
+        case WStype_PONG:
+            LOG_I(TAG, "Received PONG");
+            break;
+        default:
+            LOG_W(TAG, "Unhandled WebSocket event type: %d", type);
+            break;
     }
-
 }
 
 void NetworkManager::sendImage(const uint8_t *imageData, size_t imageLength) {
     size_t totalLength = imageLength + 6; // 6 for "IMAGE:"
 
     auto *combinedData = new uint8_t[totalLength];
-
     memcpy(combinedData, "IMAGE:", 6);
-
     memcpy(combinedData + 6, imageData, imageLength);
-
     webSocket.sendBIN(combinedData, totalLength);
 
     delete[] combinedData;
@@ -90,3 +123,12 @@ void NetworkManager::sendInitMessage() {
     ESP_LOGI(TAG, "Sent init message");
 }
 
+void NetworkManager::sendEvent(const char *eventType, const JsonObject &data) {
+    StaticJsonDocument<256> doc;
+    doc["event_type"] = eventType;
+    doc["data"] = data;
+    char buffer[256];
+    size_t length = serializeJson(doc, buffer);
+    webSocket.sendTXT(buffer, length);
+    LOG_I(TAG, "Sent event: %s", eventType);
+}
