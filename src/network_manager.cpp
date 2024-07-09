@@ -91,6 +91,12 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
 
             if (strcmp(event_type, "capture_image") == 0) {
                 eventDispatcher->dispatchEvent({CMD_CAPTURE_IMAGE, ""});
+            } else if (strcmp(event_type, "reset_device") == 0) {
+                LOG_I(TAG, "Received reset command. Restarting ESP32...");
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                esp_restart();
+            } else {
+                LOG_W(TAG, "Unhandled event type: %s", event_type);
             }
             break;
         }
@@ -124,7 +130,7 @@ void NetworkManager::sendInitMessage() {
 }
 
 void NetworkManager::sendEvent(const char *eventType, const JsonObject &data) {
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     doc["event_type"] = eventType;
     doc["data"] = data;
     char buffer[256];
