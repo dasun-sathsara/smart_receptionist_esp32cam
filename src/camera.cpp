@@ -23,9 +23,8 @@ void Camera::captureImage() {
     fb = esp_camera_fb_get();
     esp_camera_fb_return(fb);
 
-    digitalWrite(FLASH_GPIO_NUM, HIGH);
-    delay(80);
     fb = esp_camera_fb_get();
+    LOG_I(TAG, "Image captured: %dx%d", fb->width, fb->height);
 
     if (!fb) {
         LOG_E(TAG, "Image capture failed");
@@ -33,8 +32,6 @@ void Camera::captureImage() {
         ESP.restart();
         return;
     }
-
-    digitalWrite(FLASH_GPIO_NUM, LOW);
 
     eventDispatcher->dispatchEvent(
             {IMAGE_CAPTURED, std::string(reinterpret_cast<const char *>(fb->buf), fb->len)}
@@ -68,8 +65,6 @@ esp_err_t Camera::initCamera() {
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.jpeg_quality = 8;
     config.fb_count = 1;
-
-    pinMode(FLASH_GPIO_NUM, OUTPUT);
 
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {

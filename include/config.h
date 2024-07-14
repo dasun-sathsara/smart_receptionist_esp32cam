@@ -3,11 +3,11 @@
 #define CONFIG_H
 
 // WiFi credentials
-#define WIFI_SSID "LG G7"
+#define WIFI_SSID "Xperia 1 II"
 #define WIFI_PASSWORD "12345678"
 
 // WebSocket server details
-#define WS_SERVER "192.168.63.127"
+#define WS_SERVER "192.168.17.218"
 #define WS_PORT 8765
 
 // Camera configuration AI Thinker Camera board

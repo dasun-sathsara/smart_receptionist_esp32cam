@@ -1,4 +1,3 @@
-// network_manager.cpp
 #include "network_manager.h"
 #include "config.h"
 #include <ArduinoJson.h>

@@ -6,34 +6,13 @@
 #include <esp_heap_caps.h>
 #include "logger.h"
 
-#define LOG_BUFFER_SIZE 128
-
-// Define currentLogLevel
-LogLevel currentLogLevel = LOG_DEBUG;
-
-// Define the logger function
-void logger(LogLevel level, const char *tag, const char *format, ...) {
-    if (level > currentLogLevel) return; // Skip if below current log level
-
-    char message[LOG_BUFFER_SIZE];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(message, LOG_BUFFER_SIZE, format, args);
-    va_end(args);
-
-    // Formatted output
-    Serial.printf("[%s][%s]: %s\n",
-                  level == LOG_ERROR ? "ERROR" : (
-                          level == LOG_WARN ? "WARN" : (
-                                  level == LOG_INFO ? "INFO" : (
-                                          level == LOG_DEBUG ? "DEBUG" : "???"))),
-                  tag, message);
-}
-
 static const char *TAG = "MAIN";
 
 EventDispatcher eventDispatcher;
 NetworkManager network;
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
 
 void setup() {
     Serial.begin(115200);
@@ -51,8 +30,15 @@ void setup() {
         LOG_I(TAG, "Image sent");
     });
 
-    Camera::begin(eventDispatcher);
     network.begin(eventDispatcher);
+    vTaskDelay(2000);
+
+    // Initialize MQTT client
+    mqttClient.setServer("192.168.17.218", 1883);
+    logger.begin(mqttClient);
+    mqttClient.connect("SmartReceptionist");
+
+    Camera::begin(eventDispatcher);
     ESPNow::begin(eventDispatcher);
 
 }
