@@ -21,6 +21,8 @@ public:
 
     static void sendEvent(const char *eventType, const JsonObject &data);
 
+    static void changeWebSocketServer(const char *newServer);
+
 private:
     static EventDispatcher *eventDispatcher;
     static WebSocketsClient webSocket;

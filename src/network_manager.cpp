@@ -7,6 +7,7 @@ static const char *TAG = "NetworkManager";
 
 EventDispatcher *NetworkManager::eventDispatcher = nullptr;
 WebSocketsClient NetworkManager::webSocket;
+const char *WS_SERVER = "192.168.17.218";
 
 void NetworkManager::begin(EventDispatcher &dispatcher) {
     eventDispatcher = &dispatcher;
@@ -34,6 +35,13 @@ void NetworkManager::begin(EventDispatcher &dispatcher) {
 
     xTaskCreate(NetworkManager::loop, "WiFi Task", 8192, this, 2, nullptr);
     xTaskCreate(NetworkManager::reconnectTask, "WiFi Reconnect Task", 2048, this, 1, nullptr);
+}
+
+void NetworkManager::changeWebSocketServer(const char *newServer) {
+    webSocket.disconnect();
+    WS_SERVER = newServer;
+    webSocket.begin(WS_SERVER, WS_PORT);
+    LOG_I(TAG, "WebSocket server changed to: %s", WS_SERVER);
 }
 
 [[noreturn]] void NetworkManager::loop(void *pvParameters) {
@@ -94,6 +102,13 @@ void NetworkManager::webSocketEvent(WStype_t type, uint8_t *payload, size_t leng
                 LOG_I(TAG, "Received reset command. Restarting ESP32...");
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 esp_restart();
+            } else if (strcmp(event_type, "change_server") == 0) {
+                const char *newServer = doc["data"]["server"];
+                if (newServer) {
+                    changeWebSocketServer(newServer);
+                } else {
+                    LOG_E(TAG, "Invalid change_server event: missing server address");
+                }
             } else {
                 LOG_W(TAG, "Unhandled event type: %s", event_type);
             }

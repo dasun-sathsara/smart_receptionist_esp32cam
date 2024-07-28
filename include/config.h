@@ -7,7 +7,7 @@
 #define WIFI_PASSWORD "12345678"
 
 // WebSocket server details
-#define WS_SERVER "192.168.17.218"
+extern const char* WS_SERVER;
 #define WS_PORT 8765
 
 // Camera configuration AI Thinker Camera board

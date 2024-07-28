@@ -5,6 +5,7 @@
 #include "esp_now_manager.h"
 #include <esp_heap_caps.h>
 #include "logger.h"
+#include "config.h"
 
 static const char *TAG = "MAIN";
 
@@ -36,7 +37,7 @@ void setup() {
     // Initialize MQTT client
     mqttClient.setServer("192.168.17.218", 1883);
     logger.begin(mqttClient);
-    mqttClient.connect("SmartReceptionist");
+    mqttClient.connect("SmartReceptionistCam");
 
     Camera::begin(eventDispatcher);
     ESPNow::begin(eventDispatcher);

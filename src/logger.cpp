@@ -13,6 +13,7 @@ void Logger::begin(PubSubClient &client) {
 }
 
 void Logger::log(LogLevel level, const char *tag, const char *format, ...) {
+    return;
     if (level > currentLogLevel) return;
 
     va_list args;
